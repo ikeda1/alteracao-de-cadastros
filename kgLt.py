@@ -1,22 +1,18 @@
-"""
-Script feito para modificar alguns campos de um banco de dados específico de uma forma mais prática
-"""
-
 from numpy import empty
 import pandas as pd
 import re
 
 # Endereço do arquivo excel
-src = "./120_mercearia_doce.xlsx"
+src = "./beforeEdit/130_mercearia_salgada.xlsx"
 # src = "./dpt_140_bebidas.xlsx"
 
 # Nome do arquivo final a ser criado
-fileName = "120-mercearia_doce.xlsx"
+fileName = "./afterEdit/dpt_130-mercearia_salgada.xlsx"
 
 # Inicializando o data frame
 df = pd.read_excel(src)
 df["Função"] = df["Função"].fillna(0)
-print(df.info())
+
 # Identifica o padrão de medida no final da descrição
 def getPattern(list):
    # pattern = r"(\d+ml|\d+,\d+ml|\d+l|\d+,\d+l|\d+L|\d+,\d+L|\d+g|\d+,\d+g|\d+G|\d+,\d+G|\d+kg|\d+,\d+kg|\d+Kg|\d+,\d+Kg|\d+KG|\d+,\d+KG)"
@@ -28,6 +24,44 @@ def otherPattern(list):
    # return bool(re.match(pattern, list))
    return re.findall(pattern, list, re.IGNORECASE)
 
+def decimalNumbers(newFunc, strIndex):
+   if (df.at[j, 'Função']) == 0:
+         df.at[j, 'Função'] = newFunc.upper()
+   elif (df.at[j, 'Função']) == "EX":
+      df.at[j, 'Função'] = f"EX;{newFunc}"
+
+   # Se for número com vírgula, faz um map e splits para mudar para um .
+   if ("," in string):
+      tmp = re.findall(r'\d+', string)
+      # print(tmp, j, (len(tmp[1])))
+
+      # Verifica quantos dígitos tem após a vírgula
+      a = len(tmp[1])
+      res = list(map(int, tmp))
+      # print(res, j)
+      # 
+      if a == 1:
+         res[1] *= 100
+      elif a == 2:
+         res[1] *= 10
+      res = float(res[0] + (res[1]/1000))
+      # print(res, j)
+      df.at[j, 'Peso Liq'] = res
+   else:
+      df.at[j, 'Peso Liq'] = float(strIndex)
+
+def decimalForMinor(newFunc, strIndex):
+   if (df.at[j, 'Função']) == 0:
+         df.at[j, 'Função'] = newFunc.upper()
+   elif (df.at[j, 'Função']) == "EX":
+      df.at[j, 'Função'] = f"EX;{newFunc}"
+   if ("," in string):
+      tmp = re.findall(r'\d+', string)
+      res = list(map(int, tmp))
+      res = float(f"{res[0]}{res[1]}")/10000
+      df.at[j, 'Peso Liq'] = res
+   else:
+      df.at[j, 'Peso Liq'] = float(strIndex)/1000
 # Transforma a coluna "Descrição" em uma lista python
 listDescription = df["Descrição"].tolist()
 
@@ -39,6 +73,7 @@ volumeList = []
 for i in range (len(df)):
    volumeList.append(getPattern(listDescription[i]))
 
+# Lista contendo index de alguns casos específicos que requerem mais atenção
 warningsList = []
 for j in range (len(df)):
    index = otherPattern(listDescription[j])
@@ -47,7 +82,6 @@ for j in range (len(df)):
       # print(listDescription[j])
       # print(index)
 
-# print(warningsList)
 # Manipula string para conter apenas os números
 for j in range (len(volumeList)):
    string = ""
@@ -56,71 +90,27 @@ for j in range (len(volumeList)):
    if (string[-4:-2] == "ml" or string[-4:-2] == "ML" or string[-4:-2] == "Ml"):
       # Se for Mililitro
       # print("Mililitro "+string[2:-4])
-      # Modificando a coluna "Função"
-      if (df.at[j, 'Função']) == 0:
-         df.at[j, 'Função'] = "LT"
-      elif (df.at[j, 'Função']) == "EX":
-         df.at[j, 'Função'] = "EX;LT"
-
-      # Se for número com vírgula, faz um map e splits para mudar para um .
-      if ("," in string):
-         tmp = re.findall(r'\d+', string)
-         res = list(map(int, tmp))
-         res = float(f"{res[0]}.{res[1]}")
-         df.at[j, 'Peso Liq'] = res
-      else:
-         df.at[j, 'Peso Liq'] = float(string[2:-4])/1000
+      decimalForMinor("LT", string[2:-4])
 
    elif (string[-3:-2] == "l" or string[-3:-2] == "L"):
       # Se for Litro
       # print("Litro "+string[2:-3])
-      if (df.at[j, 'Função']) == 0:
-         df.at[j, 'Função'] = "LT"
-      elif (df.at[j, 'Função']) == "EX":
-         df.at[j, 'Função'] = "EX;LT"
-      if ("," in string):
-         tmp = re.findall(r'\d+', string)
-         res = list(map(int, tmp))
-         res = float(f"{res[0]}.{res[1]}")
-         df.at[j, 'Peso Liq'] = res
-      else:
-         df.at[j, 'Peso Liq'] = string[2:-3]
+      decimalNumbers("LT", string[2:-3])
 
    elif (string[-4:-2] == "kg" or string[-4:-2] == "Kg" or string[-4:-2] == "KG"):
-         # Se for Quilograma
-         # print("Quilos "+string[2:-4])
-         if (df.at[j, 'Função']) == 0:
-            df.at[j, 'Função'] = "KG"
-         elif (df.at[j, 'Função']) == "EX":
-            df.at[j, 'Função'] = "EX;KG"
-         if ("," in string):
-            tmp = re.findall(r'\d+', string)
-            print(tmp, j)
-            res = list(map(int, tmp))
-            # print(res, j)
-            # res = float(f"{res[0]}.{res[1]}")
-            res = float(res[0] + (res[1]/1000))
-            print(res, j)
-            df.at[j, 'Peso Liq'] = res
-         else:
-            df.at[j, 'Peso Liq'] = float(string[2:-4])
+      # Se for Quilograma
+      # print("Quilos "+string[2:-4])
+      decimalNumbers("KG", string[2:-4])
 
    elif (string[-3:-2] == "g" or string[-3:-2] == "G"):
       # Se for Gramas
       # print("Gramas "+string[2:-3])
-      if (df.at[j, 'Função']) == 0:
-         df.at[j, 'Função'] = "KG"
-      elif (df.at[j, 'Função']) == "EX":
-         df.at[j, 'Função'] = "EX;KG"
-      if ("," in string):
-         tmp = re.findall(r'\d+', string)
-         res = list(map(int, tmp))
-         res = float(f"{res[0]}.{res[1]}")
-         df.at[j, 'Peso Liq'] = res
-      else:
-         df.at[j, 'Peso Liq'] = float(string[2:-3])/1000
+      decimalForMinor("KG", string[2:-3])
       
-# with pd.option_context('display.max_rows', None):  # more options can be specified also
-#     print(df)
+with pd.option_context('display.max_rows', None):  # more options can be specified also
+    print(df)
 
-df.to_excel(fileName)   
+df.to_excel(fileName)
+
+print("Alteração concluída")
+print(warningsList)
