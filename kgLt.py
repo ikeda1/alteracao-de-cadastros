@@ -2,16 +2,21 @@ from numpy import empty
 import pandas as pd
 import re
 
+# Configurações #
+
 # Endereço do arquivo excel
-src = "./beforeEdit/130_mercearia_salgada.xlsx"
+src = "./beforeEdit/110_mercearia_seca.xlsx"
 # src = "./dpt_140_bebidas.xlsx"
 
 # Nome do arquivo final a ser criado
-fileName = "./afterEdit/dpt_130-mercearia_salgada.xlsx"
+fileName = "./afterEdit/dpt-110_mercearia_seca.xlsx"
 
 # Inicializando o data frame
 df = pd.read_excel(src)
 df["Função"] = df["Função"].fillna(0)
+
+
+# Funções #
 
 # Identifica o padrão de medida no final da descrição
 def getPattern(list):
@@ -19,10 +24,15 @@ def getPattern(list):
    pattern = r'(\d+ml|\d+,\d+ml|\d+l|\d+,\d+l|\d+g|\d+,\d+g|\d+kg|\d+,\d+kg)'
    return re.findall(pattern, list, re.IGNORECASE)
 
+def getUnit(list):
+   pattern = r'(?!\d+ml|\d+,\d+ml|\d+l|\d+,\d+l|\d+g|\d+,\d+g|\d+kg|\d+,\d+kg)(c[\]\/]\d+|Unit)'
+   return re.findall(pattern, list, re.IGNORECASE)
+
 def otherPattern(list):
-   pattern = r"c[\]\/]\d+"
+   pattern = r"c[\]\/]\d+|\d+mg"
    # return bool(re.match(pattern, list))
    return re.findall(pattern, list, re.IGNORECASE)
+
 
 def decimalNumbers(newFunc, strIndex):
    if (df.at[j, 'Função']) == 0:
@@ -50,6 +60,7 @@ def decimalNumbers(newFunc, strIndex):
    else:
       df.at[j, 'Peso Liq'] = float(strIndex)
 
+
 def decimalForMinor(newFunc, strIndex):
    if (df.at[j, 'Função']) == 0:
          df.at[j, 'Função'] = newFunc.upper()
@@ -66,12 +77,32 @@ def decimalForMinor(newFunc, strIndex):
 listDescription = df["Descrição"].tolist()
 
 
+def unit(newFunc, strIndex):
+   if (df.at[j, 'Função']) == 0:
+         df.at[j, 'Função'] = newFunc.upper()
+   elif (df.at[j, 'Função']) == "EX":
+      df.at[j, 'Função'] = f"EX;{newFunc}"
+
+   if strIndex == 1:
+      df.at[j, 'Unidade Medida'] = 1
+   else:
+      tmp = re.findall(r'\d+', stringUnit)
+      res = list(map(int, tmp))
+      res = int(res[0])
+      df.at[j, 'Unidade Medida'] = res
+
+
+# --------------------------------------------------------------------------------- #
 # Lista que armazena os volumes
 volumeList = []
+unitList = []
+testList = []
 
 # len(df) = Número de colunas do data frame
 for i in range (len(df)):
    volumeList.append(getPattern(listDescription[i]))
+   unitList.append(getUnit(listDescription[i]))
+
 
 # Lista contendo index de alguns casos específicos que requerem mais atenção
 warningsList = []
@@ -86,7 +117,12 @@ for j in range (len(df)):
 for j in range (len(volumeList)):
    string = ""
    string += str(volumeList[j])
+   stringUnit = ""
+   stringUnit += str(unitList[j])
    num = ""
+   print(stringUnit[2:-2])
+   # if unitList[j] == ['Unit'] or unitList[j] == ['unit']:
+   #    print(unitList[j])
    if (string[-4:-2] == "ml" or string[-4:-2] == "ML" or string[-4:-2] == "Ml"):
       # Se for Mililitro
       # print("Mililitro "+string[2:-4])
@@ -106,6 +142,13 @@ for j in range (len(volumeList)):
       # Se for Gramas
       # print("Gramas "+string[2:-3])
       decimalForMinor("KG", string[2:-3])
+   
+   elif (stringUnit[2:4] == "C/" or stringUnit[2:4] == "c/" or stringUnit[2:-2] == "Unit" or stringUnit[2:-2] == "Unit"):
+      # Se for unitário
+      if stringUnit[2:-2] == 'Unit' or stringUnit[2:-2] == 'unit':
+         unit("UN", 1)
+      else:
+         unit("UN", stringUnit)
       
 with pd.option_context('display.max_rows', None):  # more options can be specified also
     print(df)
@@ -113,4 +156,8 @@ with pd.option_context('display.max_rows', None):  # more options can be specifi
 df.to_excel(fileName)
 
 print("Alteração concluída")
-print(warningsList)
+# print(testList)
+# print(10)
+# print(warningsList)
+# print(volumeList)
+# print(unitList)
